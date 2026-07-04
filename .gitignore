@@ -1,0 +1,42 @@
+# Local agent memory
+.engramory-memory/
+
+# Dependencies
+node_modules/
+kubemanage-web/node_modules/
+
+# Build outputs
+dist/
+kubemanage-web/dist/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Local environment files
+.env
+.env.local
+.env.*.local
+kubemanage-another/config.yaml
+
+# OS/editor files
+.DS_Store
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Go build/test outputs
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
