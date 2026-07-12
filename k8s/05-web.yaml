@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kubemanage-web
+  namespace: kubemanage
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kubemanage-web
+  template:
+    metadata:
+      labels:
+        app: kubemanage-web
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: node234
+      containers:
+        - name: web
+          image: docker.io/library/kubemanage-web:v1.0.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 80
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubemanage-web
+  namespace: kubemanage
+spec:
+  type: NodePort
+  selector:
+    app: kubemanage-web
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      nodePort: 30240

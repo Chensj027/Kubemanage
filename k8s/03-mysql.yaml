@@ -1,0 +1,101 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubemanage-mysql
+  namespace: kubemanage
+spec:
+  clusterIP: None
+  selector:
+    app: kubemanage-mysql
+  ports:
+    - name: mysql
+      port: 3306
+      targetPort: 3306
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: kubemanage-mysql
+  namespace: kubemanage
+spec:
+  serviceName: kubemanage-mysql
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kubemanage-mysql
+  template:
+    metadata:
+      labels:
+        app: kubemanage-mysql
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: node234
+      securityContext:
+        fsGroup: 65534
+      containers:
+        - name: mysql
+          image: docker.io/library/kubemanage-mysql:5.7
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 999
+            runAsGroup: 999
+          args:
+            - --character-set-server=utf8mb4
+            - --collation-server=utf8mb4_unicode_ci
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kubemanage-secrets
+                  key: mysql-root-password
+            - name: MYSQL_DATABASE
+              value: kubemanage
+            - name: MYSQL_USER
+              value: kubemanage
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: kubemanage-secrets
+                  key: mysql-password
+          ports:
+            - name: mysql
+              containerPort: 3306
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -uroot -p"$MYSQL_ROOT_PASSWORD"
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 12
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - mysqladmin ping -h 127.0.0.1 -uroot -p"$MYSQL_ROOT_PASSWORD"
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/mysql
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: nfs-csi
+        resources:
+          requests:
+            storage: 10Gi

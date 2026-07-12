@@ -95,6 +95,8 @@ func (o *Options) register() error {
 	if err := o.registerDatabase(); err != nil {
 		return err
 	}
+	// 注册 JWT 签名密钥
+	o.registerJwt()
 	return nil
 }
 

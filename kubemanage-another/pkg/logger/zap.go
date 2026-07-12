@@ -26,6 +26,7 @@ func InitLogger() (err error) {
 		return
 	}
 	var core zapcore.Core
+	consoleCore := zapcore.NewCore(encoder, zapcore.Lock(os.Stdout), l)
 	if cfg.Level == "debug" {
 		// 进入开发模式，日志输出到终端
 		config := zap.NewDevelopmentEncoderConfig()
@@ -39,7 +40,10 @@ func InitLogger() (err error) {
 			zapcore.NewCore(consoleEncoder, zapcore.Lock(os.Stdout), zapcore.DebugLevel),
 		)
 	} else {
-		core = zapcore.NewCore(encoder, writeSyncer, l)
+		core = zapcore.NewTee(
+			zapcore.NewCore(encoder, writeSyncer, l),
+			consoleCore,
+		)
 	}
 
 	LG = zap.New(core, zap.AddCaller())

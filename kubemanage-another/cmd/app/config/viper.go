@@ -60,6 +60,14 @@ func Binding(filePath string) error {
 		return fmt.Errorf("config unmarshal failed: %w", err)
 	}
 
+	// 生产环境中的敏感配置通过 Kubernetes Secret 注入，避免写入配置文件。
+	if value := os.Getenv("KUBEMANAGE_MYSQL_PASSWORD"); value != "" {
+		SysConfig.Mysql.Password = value
+	}
+	if value := os.Getenv("KUBEMANAGE_JWT_SECRET"); value != "" {
+		SysConfig.Default.JWTSecret = value
+	}
+
 	v.WatchConfig()
 	v.OnConfigChange(func(in fsnotify.Event) {
 		fmt.Println("config file changed,sys config reload")

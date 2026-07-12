@@ -1,0 +1,5 @@
+FROM scratch
+
+COPY kubemanage-server /app
+
+ENTRYPOINT ["/app"]

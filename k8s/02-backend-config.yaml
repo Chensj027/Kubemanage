@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubemanage-backend-config
+  namespace: kubemanage
+data:
+  config.yaml: |
+    default:
+      listenAddr: ":6180"
+      webSocketListenAddr: ""
+      JWTSecret: ""
+      expireTime: 10
+
+    mysql:
+      host: "kubemanage-mysql"
+      port: "3306"
+      user: "kubemanage"
+      password: ""
+      name: "kubemanage"
+      maxOpenConns: 100
+      maxLifetime: 20
+      maxIdleConns: 10
+
+    log:
+      level: "info"
+      filename: "/tmp/kubemanage.log"
+      max_size: 200
+      max_age: 30
+      max_backups: 7
