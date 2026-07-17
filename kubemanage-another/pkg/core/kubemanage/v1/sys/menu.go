@@ -10,6 +10,7 @@ import (
 	"github.com/noovertime7/kubemanage/dao"
 	"github.com/noovertime7/kubemanage/dao/model"
 	"github.com/noovertime7/kubemanage/dto"
+	"github.com/noovertime7/kubemanage/pkg"
 )
 
 // MenuGetter MenuService对象获取器
@@ -21,6 +22,7 @@ type MenuGetter interface {
 // MenuService Menu菜单相关操作的Service方法
 type MenuService interface {
 	GetMenuByAuthorityID(ctx context.Context, authorityId uint) ([]model.SysMenu, error)
+	GetDirectMenuByAuthorityID(ctx context.Context, authorityId uint) ([]model.SysMenu, error)
 	GetBassMenu(ctx context.Context) ([]model.SysBaseMenu, error)
 	AddBaseMenu(ctx context.Context, in *dto.AddSysMenusInput) error
 	AddMenuAuthority(ctx context.Context, menus []model.SysBaseMenu, authorityId uint) error
@@ -51,7 +53,17 @@ func (m *menuService) GetBassMenu(ctx context.Context) ([]model.SysBaseMenu, err
 }
 
 func (m *menuService) GetMenuByAuthorityID(ctx context.Context, authorityId uint) ([]model.SysMenu, error) {
-	menuTree, err := m.getMenuTree(ctx, authorityId)
+	return m.getMenusByAuthorityID(ctx, authorityId, true)
+}
+
+// GetDirectMenuByAuthorityID 仅返回直接授予指定角色的菜单。
+// 角色管理页面使用此视图，避免保存直授权限时把继承菜单复制到子角色。
+func (m *menuService) GetDirectMenuByAuthorityID(ctx context.Context, authorityId uint) ([]model.SysMenu, error) {
+	return m.getMenusByAuthorityID(ctx, authorityId, false)
+}
+
+func (m *menuService) getMenusByAuthorityID(ctx context.Context, authorityId uint, inherited bool) ([]model.SysMenu, error) {
+	menuTree, err := m.getMenuTree(ctx, authorityId, inherited)
 	if err != nil {
 		return nil, err
 	}
@@ -82,23 +94,67 @@ func (m *menuService) AddBaseMenu(ctx context.Context, in *dto.AddSysMenusInput)
 
 // AddMenuAuthority 为角色增加menu树
 func (m *menuService) AddMenuAuthority(ctx context.Context, menus []model.SysBaseMenu, authorityId uint) error {
+	if _, err := m.factory.Authority().Find(ctx, &model.SysAuthority{AuthorityId: authorityId}); err != nil {
+		return errors.New("角色不存在")
+	}
+	// 管理员菜单与 API 一样不可降权。即使绕过前端直接调用接口，
+	// 服务端也会将其恢复为完整菜单目录。
+	if authorityId == pkg.AdminDefaultAuth {
+		allMenus, err := m.factory.BaseMenu().FindList(ctx, nil)
+		if err != nil {
+			return err
+		}
+		menus = allMenus
+	}
 	auth := &model.SysAuthority{AuthorityId: authorityId, SysBaseMenus: menus}
 	return m.factory.Authority().SetMenuAuthority(ctx, auth)
 }
 
-func (m *menuService) getMenuTree(ctx context.Context, authorityId uint) (map[string][]model.SysMenu, error) {
+func (m *menuService) getMenuTree(ctx context.Context, authorityId uint, inherited bool) (map[string][]model.SysMenu, error) {
 	var allMenus []model.SysMenu
 	treeMap := make(map[string][]model.SysMenu)
-	SysAuthorityMenu := &model.SysAuthorityMenu{AuthorityId: strconv.Itoa(int(authorityId))}
-	authorityMenus, err := m.factory.AuthorityMenu().FindList(ctx, SysAuthorityMenu)
-	if err != nil {
-		return nil, err
+	// 111 是不可降权的超级管理员。读取时也直接使用完整菜单目录，
+	// 避免数据库被手工改动后管理员菜单与其 API 硬放行语义不一致。
+	if authorityId == pkg.AdminDefaultAuth {
+		baseMenus, err := m.factory.BaseMenu().FindList(ctx, nil)
+		if err != nil {
+			return nil, err
+		}
+		for i := range baseMenus {
+			allMenus = append(allMenus, model.SysMenu{
+				SysBaseMenu: baseMenus[i],
+				AuthorityId: authorityId,
+				MenuId:      strconv.Itoa(baseMenus[i].ID),
+			})
+		}
+		for _, menu := range allMenus {
+			treeMap[menu.ParentId] = append(treeMap[menu.ParentId], menu)
+		}
+		return treeMap, nil
 	}
-	var MenuIds []string
-	for i := range authorityMenus {
-		MenuIds = append(MenuIds, authorityMenus[i].MenuId)
+	authorityIDs := []uint{authorityId}
+	if inherited {
+		var err error
+		authorityIDs, err = m.getAuthorityChain(ctx, authorityId)
+		if err != nil {
+			return nil, err
+		}
 	}
-	baseMenus, err := m.factory.BaseMenu().FindIn(ctx, MenuIds)
+	menuIDSet := make(map[string]struct{})
+	for _, id := range authorityIDs {
+		authorityMenus, err := m.factory.AuthorityMenu().FindList(ctx, &model.SysAuthorityMenu{AuthorityId: strconv.Itoa(int(id))})
+		if err != nil {
+			return nil, err
+		}
+		for i := range authorityMenus {
+			menuIDSet[authorityMenus[i].MenuId] = struct{}{}
+		}
+	}
+	menuIDs := make([]string, 0, len(menuIDSet))
+	for id := range menuIDSet {
+		menuIDs = append(menuIDs, id)
+	}
+	baseMenus, err := m.factory.BaseMenu().FindIn(ctx, menuIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -113,6 +169,25 @@ func (m *menuService) getMenuTree(ctx context.Context, authorityId uint) (map[st
 		treeMap[v.ParentId] = append(treeMap[v.ParentId], v)
 	}
 	return treeMap, nil
+}
+
+func (m *menuService) getAuthorityChain(ctx context.Context, authorityID uint) ([]uint, error) {
+	chain := make([]uint, 0, 4)
+	visited := make(map[uint]struct{})
+	current := authorityID
+	for current != 0 {
+		if _, exists := visited[current]; exists {
+			return nil, errors.New("角色继承关系存在循环")
+		}
+		visited[current] = struct{}{}
+		chain = append(chain, current)
+		var role model.SysAuthority
+		if err := m.factory.GetDB().WithContext(ctx).Select("authority_id", "parent_id").Where("authority_id = ?", current).First(&role).Error; err != nil {
+			return nil, errors.Wrap(err, "角色不存在")
+		}
+		current = role.ParentId
+	}
+	return chain, nil
 }
 
 func (m *menuService) getChildrenList(menu *model.SysMenu, treeMap map[string][]model.SysMenu) error {

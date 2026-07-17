@@ -20,5 +20,9 @@ func (u *userController) initRoutes(ginEngine *gin.RouterGroup) {
 		userRoute.DELETE("/:id/delete_user", user.DeleteUser)
 		userRoute.POST("/:id/change_pwd", user.ChangePassword)
 		userRoute.PUT("/:id/reset_pwd", user.ResetPassword)
+		userRoute.GET("/list", user.List)
+		userRoute.POST("", user.Create)
+		userRoute.PUT("/:id", user.Update)
+		userRoute.PUT("/:id/enable", user.Enable)
 	}
 }

@@ -35,7 +35,7 @@ func NewUser(db *gorm.DB) *user {
 // Find 根据条件查找user
 func (u *user) Find(ctx context.Context, userInfo *model.SysUser) (*model.SysUser, error) {
 	user := &model.SysUser{}
-	if err := u.db.WithContext(ctx).Preload("Authorities").Preload("Authority").Where(userInfo).Find(user).Error; err != nil {
+	if err := u.db.WithContext(ctx).Preload("Authority").Where(userInfo).Find(user).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, gorm.ErrRecordNotFound
 		}

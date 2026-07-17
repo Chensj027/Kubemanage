@@ -117,6 +117,10 @@ node234 / 10.90.1.234
 
 [DEPLOYMENT.md](./DEPLOYMENT.md)
 
+用户、角色、菜单和 API 权限的实现与接口说明见：
+
+[AUTHORIZATION.md](./AUTHORIZATION.md)
+
 ## 配置与安全
 
 - 不要提交真实数据库密码、token、kubeconfig 或其它密钥。

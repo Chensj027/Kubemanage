@@ -17,5 +17,8 @@ func (a *authorityController) initRoutes(ginEngine *gin.RouterGroup) {
 		casRoute.GET("/getPolicyPathByAuthorityId", a.GetPolicyPathByAuthorityId)
 		casRoute.POST("/updateCasbinByAuthority", a.UpdateCasbinByAuthorityId)
 		casRoute.GET("/getAuthorityList", a.GetAuthorityList)
+		casRoute.POST("", a.Create)
+		casRoute.PUT("/:authorityId", a.Update)
+		casRoute.DELETE("/:authorityId", a.Delete)
 	}
 }

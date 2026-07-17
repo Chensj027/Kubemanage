@@ -222,6 +222,7 @@ import json2yaml from 'json2yaml';
 import {getNamespecelist} from "@/api/namespace";
 import {CreateIngress, DeleteIngress, GetIngress, GetIngressDetail, UpdateIngress} from "@/api/ingress";
 export default {
+    name: 'IngressView',
     data() {
         return {
             //编辑器配置

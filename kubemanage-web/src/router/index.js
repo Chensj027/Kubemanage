@@ -3,8 +3,21 @@ import HomeView from "@/views/home/HomeView";
 import NProgress from 'nprogress';
 import 'nprogress/nprogress.css';
 import Layout from '../layout/Layout'
+import { getUserInfo } from '@/api/system'
+import { authState, clearAuth, hasMenuPath, setAuthInfo } from '@/utils/auth'
 
-const routes = [
+export const routes = [
+    {
+        path: '/system',
+        name: '系统管理',
+        component: Layout,
+        icon: 'Setting',
+        meta: {title: '系统管理', requireAuth: true},
+        children: [
+            { path: '/system/users', name: '用户管理', icon: 'User', meta: {title: '用户管理', requireAuth: true, menuAliases: ['/user']}, component: () => import('@/views/system/Users.vue') },
+            { path: '/system/roles', name: '角色权限', icon: 'Lock', meta: {title: '角色权限', requireAuth: true, menuAliases: ['/authority']}, component: () => import('@/views/system/Roles.vue') }
+        ]
+    },
     {
         path: '/404',
         component: () => import('@/views/common/404.vue'),
@@ -27,12 +40,13 @@ const routes = [
     {
         path: '/home',
         component: Layout,
-        meta: {title:"概要" ,requireAuth:false},
+        meta: {title:"概要" ,requireAuth:true},
         children: [
             {
                 path: '/home',
                 name: '概要',
                 icon: 'Help',
+                meta: {title: '概要', requireAuth: true},
                 component: HomeView,
             }
         ]
@@ -73,11 +87,16 @@ const routes = [
                 component: () => import('@/views/pod/Pod'),
             },
             {
-                path: "/workload/deamonset",
+                path: "/workload/daemonset",
                 name: "DaemonSet",
                 icon: "el-icon-document-add",
                 meta: {title: "DaemonSet", requireAuth: true},
                 component: () => import("@/views/daemonset/DaemonSet.vue")
+            },
+            {
+                path: "/workload/deamonset",
+                redirect: "/workload/daemonset",
+                meta: {requireAuth: true, hidden: true, permissionPath: '/workload/daemonset'}
             },
             {
                 path: "/workload/statefulset",
@@ -190,7 +209,7 @@ const router = createRouter({
     routes
 })
 
-router.beforeEach((to,from,next) => {
+router.beforeEach(async (to,from,next) => {
     // 启动进度条
     NProgress.start()
     // 设置头部
@@ -199,33 +218,38 @@ router.beforeEach((to,from,next) => {
     }else {
         document.title = "Kubernetes"
     }
-    // 放行
-    next()
-})
-const whiteList = ["/login", "/authredirect"];
-//使用钩子函数对路由进行权限跳转
-router.beforeEach((to, from, next) => {
-        console.log(getToken())
-        if (getToken()) {
-            if (to.path === '/login') {
-                next({path: '/home'})
-            } else {
-                next()
-            }
-        } else {
-            console.log("没有token")
-            if (whiteList.indexOf(to.path) !== -1) {
-                next()
-            } else {
-                next('/login')
-            }
+    const token = getToken()
+    if (!token) return to.path === '/login' ? next() : next('/login')
+    if (to.path === '/login') return next('/home')
+    if (!authState.loaded) {
+        try {
+            const res = await getUserInfo()
+            setAuthInfo(res.data || {})
+        } catch (_) {
+            clearAuth()
+            return next('/login')
         }
     }
-)
+    if (!isRouteAllowed(to)) return next('/404')
+    next()
+})
 
 
 const getToken = () => {
     return localStorage.getItem('token')
+}
+
+export function isRouteAllowed(route) {
+    const meta = route.meta || {}
+    if (!meta.requireAuth) return true
+    return hasMenuPath(meta.permissionPath || route.path, meta.menuAliases || [])
+}
+
+export function visibleRoutes() {
+    return routes.filter(route => route.children).map(route => ({
+        ...route,
+        children: (route.children || []).filter(child => !child.meta?.hidden && isRouteAllowed({ ...child, meta: child.meta || {} }))
+    })).filter(route => route.children.length)
 }
 
 

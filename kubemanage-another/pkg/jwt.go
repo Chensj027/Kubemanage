@@ -2,9 +2,11 @@ package pkg
 
 import (
 	"errors"
+	"fmt"
+	"time"
+
 	jwt "github.com/dgrijalva/jwt-go"
 	uuid "github.com/satori/go.uuid"
-	"time"
 )
 
 var JWTToken jwtToken
@@ -19,11 +21,12 @@ func RegisterJwt(secret string) {
 }
 
 type BaseClaims struct {
-	UUID        uuid.UUID
-	ID          int
-	Username    string
-	NickName    string
-	AuthorityId uint
+	UUID         uuid.UUID
+	ID           int
+	Username     string
+	NickName     string
+	AuthorityId  uint
+	TokenVersion uint
 }
 
 // CustomClaims 自定义token中携带的信息
@@ -34,6 +37,9 @@ type CustomClaims struct {
 
 // GenerateToken 生成token函数方法
 func (j *jwtToken) GenerateToken(baseClaims BaseClaims) (string, error) {
+	if j.secret == "" {
+		return "", errors.New("JWT secret is not configured")
+	}
 	nowTime := time.Now()
 	expireTime := nowTime.Add(24 * time.Hour)
 	claims := CustomClaims{
@@ -51,24 +57,35 @@ func (j *jwtToken) GenerateToken(baseClaims BaseClaims) (string, error) {
 
 // ParseToken 解析token函数
 func (j *jwtToken) ParseToken(tokenString string) (claims *CustomClaims, err error) {
+	if j.secret == "" {
+		return nil, errors.New("JWT secret is not configured")
+	}
+	if tokenString == "" {
+		return nil, errors.New("token不能为空")
+	}
+
 	// 使用jwt.ParseWithClaims方法解析token，这个token是前端传给我们的,获得一个*Token类型的对象
 	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if token.Method != jwt.SigningMethodHS256 {
+			return nil, fmt.Errorf("不支持的token签名算法: %s", token.Method.Alg())
+		}
 		return []byte(j.secret), nil
 	})
 	if err != nil {
 		// 处理token解析后的各种错误
 		if ve, ok := err.(*jwt.ValidationError); ok {
-			if ve.Errors == jwt.ValidationErrorExpired {
+			if ve.Errors&jwt.ValidationErrorExpired != 0 {
 				return nil, errors.New("登录已过期，请重新登录")
-			} else {
-				return nil, errors.New("token不可用," + err.Error())
 			}
 		}
+		return nil, errors.New("token不可用," + err.Error())
 	}
 	// 转换为*CustomClaims类型并返回
-	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
-		// 如果解析成功并且token是可用的
-		return claims, nil
+	if token != nil {
+		if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
+			// 如果解析成功并且令牌可用
+			return claims, nil
+		}
 	}
 	return nil, errors.New("解析token失败")
 }

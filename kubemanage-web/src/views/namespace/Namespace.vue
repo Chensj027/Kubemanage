@@ -110,6 +110,7 @@ import yaml2obj from 'js-yaml';
 import json2yaml from 'json2yaml';
 import {DeleteNamespace, GetNamespaceDetail, getNamespecelist, UpdateNamespace} from "@/api/namespace";
 export default {
+    name: 'NamespaceView',
     data() {
         return {
             //编辑器配置

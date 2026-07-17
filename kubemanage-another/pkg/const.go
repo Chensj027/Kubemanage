@@ -9,7 +9,7 @@ const (
 
 const (
 	LoginURL    = "/api/user/login"
-	LogoutURL   = "/api/user/logout"
+	LogoutURL   = "/api/user/loginout"
 	WebShellURL = "/api/k8s/pod/webshell"
 )
 

@@ -305,6 +305,7 @@ import {getNamespecelist} from "@/api/namespace";
 
 
 export default {
+  name: 'DeploymentView',
   data() {
     return {
       //编辑器配置

@@ -23,11 +23,15 @@ func (a *SysApi) MigrateTable(ctx context.Context, db *gorm.DB) error {
 }
 
 func (a *SysApi) InitData(ctx context.Context, db *gorm.DB) error {
-	ok, err := a.IsInitData(ctx, db)
-	if err != nil || ok {
-		return err
+	for i := range SysApis {
+		item := SysApis[i]
+		if err := db.WithContext(ctx).Where("path = ? AND method = ?", item.Path, item.Method).
+			Assign(map[string]interface{}{"description": item.Description, "api_group": item.ApiGroup}).
+			FirstOrCreate(&item).Error; err != nil {
+			return err
+		}
 	}
-	return db.WithContext(ctx).Create(SysApis).Error
+	return nil
 }
 
 func (a *SysApi) IsInitData(ctx context.Context, db *gorm.DB) (bool, error) {

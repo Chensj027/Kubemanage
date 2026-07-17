@@ -107,6 +107,7 @@ import json2yaml from 'json2yaml';
 import {DeleteNode, GetNodeDetail, getNodeList, UpdateNode} from "@/api/node";
 import {getNamespecelist} from "@/api/namespace";
 export default {
+    name: 'NodeView',
     data() {
         return {
             //编辑器配置

@@ -7,7 +7,50 @@ import (
 	"github.com/noovertime7/kubemanage/middleware"
 	v1 "github.com/noovertime7/kubemanage/pkg/core/kubemanage/v1"
 	"github.com/noovertime7/kubemanage/pkg/globalError"
+	"strconv"
 )
+
+func (a *authorityController) Create(c *gin.Context) {
+	var in dto.AuthorityInput
+	if e := c.ShouldBindJSON(&in); e != nil {
+		middleware.ResponseError(c, globalError.NewGlobalError(globalError.ParamBindError, e))
+		return
+	}
+	if e := v1.CoreV1.System().Authority().Create(c, &in); e != nil {
+		middleware.ResponseError(c, globalError.NewGlobalError(globalError.ServerError, e))
+		return
+	}
+	middleware.ResponseSuccess(c, "操作成功")
+}
+func (a *authorityController) Update(c *gin.Context) {
+	id, e := strconv.ParseUint(c.Param("authorityId"), 10, 64)
+	if e != nil {
+		middleware.ResponseError(c, globalError.NewGlobalError(globalError.ParamBindError, e))
+		return
+	}
+	var in dto.AuthorityInput
+	if e = c.ShouldBindJSON(&in); e != nil {
+		middleware.ResponseError(c, globalError.NewGlobalError(globalError.ParamBindError, e))
+		return
+	}
+	if e = v1.CoreV1.System().Authority().Update(c, uint(id), &in); e != nil {
+		middleware.ResponseError(c, globalError.NewGlobalError(globalError.ServerError, e))
+		return
+	}
+	middleware.ResponseSuccess(c, "操作成功")
+}
+func (a *authorityController) Delete(c *gin.Context) {
+	id, e := strconv.ParseUint(c.Param("authorityId"), 10, 64)
+	if e != nil {
+		middleware.ResponseError(c, globalError.NewGlobalError(globalError.ParamBindError, e))
+		return
+	}
+	if e = v1.CoreV1.System().Authority().Delete(c, uint(id)); e != nil {
+		middleware.ResponseError(c, globalError.NewGlobalError(globalError.DeleteError, e))
+		return
+	}
+	middleware.ResponseSuccess(c, "操作成功")
+}
 
 func (a *authorityController) GetAuthorityList(ctx *gin.Context) {
 	params := &dto.PageInfo{}

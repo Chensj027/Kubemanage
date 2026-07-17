@@ -33,24 +33,21 @@ func (i *MenuAuthority) InitData(ctx context.Context, db *gorm.DB) error {
 	if err != nil || ok {
 		return err
 	}
-	// admin 拥有全部菜单权限
-	if err = db.Model(&adminRole).Association("SysBaseMenus").Append(SysBaseMenuEntities); err != nil {
+	// 管理员拥有全部菜单；普通用户拥有非系统菜单；
+	// 普通用户子角色不直接授予菜单，而是继承角色 222。
+	if err = db.WithContext(ctx).Model(&adminRole).Association("SysBaseMenus").Replace(SysBaseMenuEntities); err != nil {
 		return err
 	}
-
-	// userRole cmdb菜单
-	menu8881 := SysBaseMenuEntities[5:7]
-	menu8881 = append(menu8881, SysBaseMenuEntities[0])
-	menu8881 = append(menu8881, SysBaseMenuEntities[1])
-	if err = db.Model(&userRole).Association("SysBaseMenus").Replace(menu8881); err != nil {
+	userMenus := make([]SysBaseMenu, 0, len(SysBaseMenuEntities))
+	for _, menu := range SysBaseMenuEntities {
+		if menu.Path != "/system" && menu.ParentId != "10019" {
+			userMenus = append(userMenus, menu)
+		}
+	}
+	if err = db.WithContext(ctx).Model(&userRole).Association("SysBaseMenus").Replace(userMenus); err != nil {
 		return err
 	}
-
-	// userSubRole
-	if err = db.Model(&userSubRole).Association("SysBaseMenus").Replace(SysBaseMenuEntities[:6]); err != nil {
-		return err
-	}
-	if err = db.Model(&userSubRole).Association("SysBaseMenus").Append(SysBaseMenuEntities[5:6]); err != nil {
+	if err = db.WithContext(ctx).Model(&userSubRole).Association("SysBaseMenus").Clear(); err != nil {
 		return err
 	}
 	return nil

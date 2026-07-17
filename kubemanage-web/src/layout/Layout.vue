@@ -89,8 +89,11 @@
 
 <script>
 
-import  { useRouter } from 'vue-router'
+import { visibleRoutes } from '@/router'
+import { logout, changePassword } from '@/api/system'
+import { authState, clearAuth } from '@/utils/auth'
 export default {
+  name: 'KubeLayout',
   data() {
     return {
       auator: require('@/assets/avator/avator.png'),
@@ -118,18 +121,21 @@ export default {
 
       }
     },
-    logout() {
-      localStorage.removeItem("username")
-      localStorage.removeItem("token")
-      this.$router.push('/login')
+    async logout() {
+      try { await logout() } finally { clearAuth(); this.$router.push('/login') }
     },
     changepwd() {
-      alert('changepwd')
+      this.$prompt('请输入原密码', '验证原密码', { inputType: 'password' }).then(async ({ value: oldPassword }) => {
+        const next = await this.$prompt('请输入新密码', '修改密码', { inputType: 'password', inputPattern: /^.{6,72}$/, inputErrorMessage: '密码长度须为 6-72 位' })
+        await changePassword(authState.user.ID || authState.user.id, { old_pwd: oldPassword, new_pwd: next.value })
+        clearAuth()
+        this.$message.success('密码修改成功，请重新登录')
+        this.$router.push('/login')
+      }).catch(() => {})
     }
   },
   beforeMount() {
-    this.routers = useRouter().options.routes
-    console.log(this.routers)
+    this.routers = visibleRoutes()
   }
 }
 </script>

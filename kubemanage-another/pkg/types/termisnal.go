@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/noovertime7/kubemanage/pkg/utils"
 	"k8s.io/client-go/tools/remotecommand"
 )
 
@@ -48,10 +49,8 @@ func NewTerminalSession(w http.ResponseWriter, r *http.Request) (*TerminalSessio
 	upgrader := &websocket.Upgrader{
 		HandshakeTimeout: time.Second * 2,
 		// 检测请求来源
-		CheckOrigin: func(r *http.Request) bool {
-			return true
-		},
-		Subprotocols: []string{r.Header.Get("Sec-WebSocket-Protocol")},
+		CheckOrigin:  utils.IsOriginAllowed,
+		Subprotocols: []string{"kubemanage"},
 	}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {

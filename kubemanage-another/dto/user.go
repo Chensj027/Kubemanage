@@ -35,8 +35,37 @@ type ChangeUserPwdInput struct {
 	NewPwd string `json:"new_pwd" form:"new_pwd" comment:"new_pwd" validate:"required"`
 }
 
+type ResetUserPwdInput struct {
+	NewPwd string `json:"new_pwd" form:"new_pwd" comment:"新密码" validate:"required,min=6,max=72"`
+}
+
+type UserCreateInput struct {
+	UserName    string `json:"username" validate:"required"`
+	Password    string `json:"password" validate:"required"`
+	NickName    string `json:"nickName"`
+	AuthorityId uint   `json:"authorityId"`
+	Enable      int    `json:"enable"`
+	Phone       string `json:"phone"`
+	Email       string `json:"email"`
+}
+type UserUpdateInput struct {
+	NickName    string `json:"nickName"`
+	Phone       string `json:"phone"`
+	Email       string `json:"email"`
+	AuthorityId uint   `json:"authorityId"`
+	Enable      *int   `json:"enable"`
+}
+type UserListOut struct {
+	List  []model.SysUser `json:"list"`
+	Total int64           `json:"total"`
+}
+
 // BindingValidParams 绑定并校验参数
 func (a *ChangeUserPwdInput) BindingValidParams(ctx *gin.Context) error {
+	return pkg.DefaultGetValidParams(ctx, a)
+}
+
+func (a *ResetUserPwdInput) BindingValidParams(ctx *gin.Context) error {
 	return pkg.DefaultGetValidParams(ctx, a)
 }
 

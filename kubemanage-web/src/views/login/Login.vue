@@ -29,7 +29,10 @@
 <script>
 import moment from 'moment';
 import {login} from "@/api/login";
+import { getUserInfo } from '@/api/system'
+import { setAuthInfo } from '@/utils/auth'
 export default{
+    name: 'LoginView',
     data() {
         return {
             //加载等待动画
@@ -58,12 +61,14 @@ export default{
         //登录方法
         handleLogin() {
           login(this.loginData)
-            .then(res => {
+            .then(async res => {
                 //账号密码校验成功后的一系列操作
                 localStorage.setItem('username', this.loginData.username);
                 localStorage.setItem('loginDate', moment().format('YYYY-MM-DD HH:mm:ss'));
                 //存放token
                 localStorage.setItem('token', res.data.token);
+                const info = await getUserInfo()
+                setAuthInfo(info.data || {})
                 //跳转至根路径
                 this.$router.push('/');
                 this.$message.success({

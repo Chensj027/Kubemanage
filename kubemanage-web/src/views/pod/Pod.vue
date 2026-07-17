@@ -416,6 +416,7 @@ import {
   UpdatePod,
 } from "@/api/pod";
 export default {
+  name: 'PodView',
   data() {
     return {
       //编辑器配置
@@ -752,8 +753,14 @@ export default {
         this.containerValue +
         "&namespace=" +
         this.namespaceValue;
+      const token = localStorage.getItem('token');
+      if (!token) {
+        this.$message.warning('登录状态已失效，请重新登录');
+        this.$router.push('/login');
+        return;
+      }
       //实例化
-      this.socket = new WebSocket(terminalWsUrl);
+      this.socket = new WebSocket(terminalWsUrl, ['kubemanage', token]);
       //关闭连接时的方法
       this.socketOnClose();
       //建立连接时的方法

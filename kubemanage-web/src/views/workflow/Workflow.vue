@@ -260,6 +260,7 @@
 import {getNamespecelist} from "@/api/namespace";
 import {CreateWorkflow, DeleteWorkflow, GetWorkflow} from "@/api/workflow";
 export default {
+    name: 'WorkflowView',
     data() {
         return {
             //工作流以及3个抽屉弹出框

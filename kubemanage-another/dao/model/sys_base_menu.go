@@ -38,11 +38,11 @@ func (m *SysBaseMenu) MigrateTable(ctx context.Context, db *gorm.DB) error {
 }
 
 func (m *SysBaseMenu) IsInitData(ctx context.Context, db *gorm.DB) (bool, error) {
-	var out *SysBaseMenu
-	if err := db.WithContext(ctx).Where("path = 'dashboard' ").Find(&out).Error; err != nil {
-		return false, nil
+	var count int64
+	if err := db.WithContext(ctx).Model(&SysBaseMenu{}).Count(&count).Error; err != nil {
+		return false, err
 	}
-	return out.ID != 0, nil
+	return count > 0, nil
 }
 
 func (m *SysBaseMenu) InitData(ctx context.Context, db *gorm.DB) error {

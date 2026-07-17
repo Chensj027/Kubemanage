@@ -194,12 +194,12 @@
 
 <script>
 import common from "../common/Config";
-import httpClient from '../../utils/request';
 import yaml2obj from 'js-yaml';
 import json2yaml from 'json2yaml';
 import {getNamespecelist} from "@/api/namespace";
 import {CreateService, DeleteService, GetService, GetServiceDetail, UpdateService} from "@/api/service";
 export default {
+    name: 'ServiceView',
     data() {
         return {
             //编辑器配置

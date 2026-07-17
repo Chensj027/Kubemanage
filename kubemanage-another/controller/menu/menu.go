@@ -23,14 +23,20 @@ func (m *menuController) GetMenusByAuthID(ctx *gin.Context) {
 	if err != nil || authID == 0 {
 		v1.Log.ErrorWithCode(globalError.ParamBindError, fmt.Errorf("authID empty"))
 		middleware.ResponseError(ctx, globalError.NewGlobalError(globalError.ParamBindError, fmt.Errorf("authID empty")))
+		return
 	}
-	menus, err := v1.CoreV1.System().Menu().GetMenuByAuthorityID(ctx, authID)
+	var menus interface{}
+	if ctx.Query("scope") == "direct" {
+		menus, err = v1.CoreV1.System().Menu().GetDirectMenuByAuthorityID(ctx, authID)
+	} else {
+		menus, err = v1.CoreV1.System().Menu().GetMenuByAuthorityID(ctx, authID)
+	}
 	if err != nil {
 		v1.Log.ErrorWithCode(globalError.GetError, err)
 		middleware.ResponseError(ctx, globalError.NewGlobalError(globalError.GetError, err))
 		return
 	}
-	middleware.ResponseSuccess(ctx, &dto.SysMenusResponse{Menus: menus})
+	middleware.ResponseSuccess(ctx, gin.H{"menus": menus})
 }
 
 // GetBaseMenus

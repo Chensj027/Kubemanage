@@ -93,6 +93,7 @@
 </template>
 
 <script>
+import {getNamespecelist} from '@/api/namespace'
 import common from "../common/Config";
 import yaml2obj from 'js-yaml';
 import json2yaml from 'json2yaml';

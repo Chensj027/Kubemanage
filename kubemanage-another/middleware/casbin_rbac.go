@@ -2,7 +2,9 @@ package middleware
 
 import (
 	"fmt"
+	"path"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -15,6 +17,7 @@ import (
 func CasbinHandler() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if AlwaysAllowPath.Has(c.Request.URL.Path) {
+			c.Next()
 			return
 		}
 		waitUse, err := utils.GetClaims(c)
@@ -23,14 +26,23 @@ func CasbinHandler() gin.HandlerFunc {
 			c.Abort()
 			return
 		}
-		// 获取请求的PATH
-		obj := c.Request.URL.Path
+		// 使用 Gin 匹配到的规范路由模板，避免重复斜杠、编码差异或路径参数
+		// 导致策略绕过或误拒绝。找不到模板时再回退到清理后的 URL 路径。
+		obj := c.FullPath()
+		if obj == "" {
+			obj = path.Clean("/" + strings.TrimPrefix(c.Request.URL.Path, "/"))
+		}
 		// 获取请求方法
-		act := c.Request.Method
+		act := strings.ToUpper(c.Request.Method)
 		// 获取用户的角色
 		sub := strconv.Itoa(int(waitUse.AuthorityId))
 		e := v1.CoreV1.System().CasbinService().Casbin() // 判断策略中是否存在
-		success, _ := e.Enforce(sub, obj, act)
+		success, err := e.Enforce(sub, obj, act)
+		if err != nil {
+			ResponseError(c, globalError.NewGlobalError(globalError.ServerError, err))
+			c.Abort()
+			return
+		}
 		if success {
 			c.Next()
 		} else {

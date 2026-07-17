@@ -11,6 +11,7 @@ import 'codemirror/theme/idea.css'
 import 'codemirror/theme/darcula.css'
 // 引入语言模式 可以从 codemirror/mode/ 下引入多个
 import 'codemirror/mode/yaml/yaml.js'
+import { hasPermission } from '@/utils/auth'
 const app = createApp(App)
 for (let iconName in ELIcons) {
     app.component(iconName,ELIcons[iconName])
@@ -20,4 +21,11 @@ app.use(GlobalCmComponent, { componentName: "codemirror" });
 //引入element plus
 app.use(ElementPlus)
 app.use(router)
+app.directive('permission', {
+    mounted(el, binding) {
+        const value = binding.value
+        const allowed = Array.isArray(value) ? hasPermission(value[0], value[1]) : hasPermission(value)
+        if (!allowed) el.parentNode && el.parentNode.removeChild(el)
+    }
+})
 app.mount('#app')

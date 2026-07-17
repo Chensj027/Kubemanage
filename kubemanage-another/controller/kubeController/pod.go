@@ -211,8 +211,12 @@ func (p *pod) WebShell(ctx *gin.Context) {
 	if err := ops.BindingValidParams(ctx); err != nil {
 		v1.Log.ErrorWithCode(globalError.ServerError, err)
 		middleware.ResponseError(ctx, globalError.NewGlobalError(globalError.ParamBindError, err))
+		return
 	}
 	if err := v1.CoreV1.Cloud().Pods("").WebShellHandler(ops, ctx.Writer, ctx.Request); err != nil {
+		if ctx.Writer.Written() {
+			return
+		}
 		middleware.ResponseError(ctx, globalError.NewGlobalError(globalError.ServerError, err))
 	}
 }

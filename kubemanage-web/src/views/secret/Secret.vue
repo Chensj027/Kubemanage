@@ -145,6 +145,7 @@ import json2yaml from 'json2yaml';
 import {getNamespecelist} from "@/api/namespace";
 import {DeleteSecret, GetSecret, GetSecretDetail, UpdateSecret} from "@/api/secret";
 export default {
+    name: 'SecretView',
     data() {
         return {
             //编辑器配置

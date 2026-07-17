@@ -2,6 +2,7 @@ package model
 
 import (
 	"database/sql"
+
 	adapter "github.com/casbin/gorm-adapter/v3"
 	"github.com/noovertime7/kubemanage/pkg"
 	uuid "github.com/satori/go.uuid"
@@ -9,12 +10,13 @@ import (
 
 // 初始化顺序
 const (
-	SysUserOrder = iota
-	MenuAuthorityOrder
+	SysAuthorityOrder = iota
+	SysUserOrder
 	SysBaseMenuOrder
-	SysAuthorityOrder
+	MenuAuthorityOrder
 	SysApisInitOrder
 	CasbinInitOrder
+	RBACCatalogMigrationOrder
 	OperatorationOrder
 	WorkFlowOrder
 )
@@ -23,77 +25,86 @@ const (
 var (
 	SysUserEntities = []*SysUser{
 		{
-			UUID:        uuid.NewV4(),
-			UserName:    "admin",
-			Password:    "$2a$14$Zfb6w0UDBFMN0.nJeVXCUO3zH/iWKGtbBYyIzDDRnC..EgTS0Et0S",
-			NickName:    "admin",
-			SideMode:    "dark",
-			Avatar:      "https://qmplusimg.henrongyi.top/gva_header.jpg",
-			BaseColor:   "#fff",
-			ActiveColor: "#1890ff",
-			AuthorityId: pkg.AdminDefaultAuth,
-			Phone:       "12345678901",
-			Email:       "test@qq.com",
-			Enable:      1,
-			Status:      sql.NullInt64{Int64: 0, Valid: true},
+			UUID:         uuid.NewV4(),
+			UserName:     "admin",
+			Password:     "$2a$14$Zfb6w0UDBFMN0.nJeVXCUO3zH/iWKGtbBYyIzDDRnC..EgTS0Et0S",
+			NickName:     "admin",
+			SideMode:     "dark",
+			Avatar:       "https://qmplusimg.henrongyi.top/gva_header.jpg",
+			BaseColor:    "#fff",
+			ActiveColor:  "#1890ff",
+			AuthorityId:  pkg.AdminDefaultAuth,
+			Phone:        "12345678901",
+			Email:        "test@qq.com",
+			Enable:       1,
+			TokenVersion: 1,
+			Status:       sql.NullInt64{Int64: 0, Valid: true},
 		},
 		{
-			UUID:        uuid.NewV4(),
-			UserName:    "chenteng",
-			Password:    "$2a$14$yLCxKYP46M2NRnXujYe3mOfNe00GtBtjpaLM2eIzYCzYKQXqzsuka",
-			NickName:    "chenteng",
-			SideMode:    "dark",
-			Avatar:      "https://qmplusimg.henrongyi.top/gva_header.jpg",
-			BaseColor:   "#fff",
-			ActiveColor: "#1890ff",
-			AuthorityId: pkg.UserDefaultAuth,
-			Phone:       "12345678901",
-			Email:       "test@qq.com",
-			Enable:      1,
-			Status:      sql.NullInt64{Int64: 0, Valid: true},
+			UUID:         uuid.NewV4(),
+			UserName:     "chenteng",
+			Password:     "$2a$14$yLCxKYP46M2NRnXujYe3mOfNe00GtBtjpaLM2eIzYCzYKQXqzsuka",
+			NickName:     "chenteng",
+			SideMode:     "dark",
+			Avatar:       "https://qmplusimg.henrongyi.top/gva_header.jpg",
+			BaseColor:    "#fff",
+			ActiveColor:  "#1890ff",
+			AuthorityId:  pkg.UserDefaultAuth,
+			Phone:        "12345678901",
+			Email:        "test@qq.com",
+			Enable:       1,
+			TokenVersion: 1,
+			Status:       sql.NullInt64{Int64: 0, Valid: true},
 		},
 		{
-			UUID:        uuid.NewV4(),
-			UserName:    "chentengsub",
-			Password:    "$2a$14$MPINiht5QO2wlR3DynizXOtuqcNAOrNZdrSUKXrbjqcKbK.jcfyAW",
-			NickName:    "chentengsub",
-			SideMode:    "dark",
-			Avatar:      "https://qmplusimg.henrongyi.top/gva_header.jpg",
-			BaseColor:   "#fff",
-			ActiveColor: "#1890ff",
-			AuthorityId: pkg.UserSubDefaultAuth,
-			Phone:       "12345678901",
-			Email:       "test@qq.com",
-			Enable:      1,
-			Status:      sql.NullInt64{Int64: 0, Valid: true},
+			UUID:         uuid.NewV4(),
+			UserName:     "chentengsub",
+			Password:     "$2a$14$MPINiht5QO2wlR3DynizXOtuqcNAOrNZdrSUKXrbjqcKbK.jcfyAW",
+			NickName:     "chentengsub",
+			SideMode:     "dark",
+			Avatar:       "https://qmplusimg.henrongyi.top/gva_header.jpg",
+			BaseColor:    "#fff",
+			ActiveColor:  "#1890ff",
+			AuthorityId:  pkg.UserSubDefaultAuth,
+			Phone:        "12345678901",
+			Email:        "test@qq.com",
+			Enable:       1,
+			TokenVersion: 1,
+			Status:       sql.NullInt64{Int64: 0, Valid: true},
 		},
 	}
 )
 
-// SysBaseMenuEntities 菜单初始化数据
+// SysBaseMenuEntities 是与 kubemanage-web 共用的路由目录。
+// 内置菜单使用预留 ID 区间，升级替换旧菜单目录时，避免与历史数据中的小号自增 ID 冲突。
 var (
 	SysBaseMenuEntities = []SysBaseMenu{
-		// 根菜单
-		{MenuLevel: 0, Hidden: false, Disabled: true, ParentId: "0", Path: "dashboard", Name: "仪表盘", Sort: 1, Meta: Meta{Title: "仪表盘", Icon: "odometer"}},
-		{MenuLevel: 0, Hidden: false, Disabled: false, ParentId: "0", Path: "cmdb", Name: "资产中心", Sort: 3, Meta: Meta{Title: "资产中心", Icon: "menu"}},
-		{MenuLevel: 0, Hidden: false, Disabled: false, ParentId: "0", Path: "kubernetes", Name: "容器管理", Sort: 4, Meta: Meta{Title: "容器管理", Icon: "menu"}},
-		{MenuLevel: 0, Hidden: false, Disabled: false, ParentId: "0", Path: "devops", Name: "应用发布", Sort: 5, Meta: Meta{Title: "应用发布", Icon: "compass"}},
-		{MenuLevel: 0, Hidden: false, Disabled: false, ParentId: "0", Path: "setting", Name: "系统设置", Sort: 6, Meta: Meta{Title: "系统设置", Icon: "setting"}},
-		//子菜单 ParentId对应跟菜单顺序 且不需要icon
-		// 资产中心子菜单
-		{MenuLevel: 0, Hidden: false, Disabled: false, ParentId: "2", Path: "host", Name: "主机管理", Sort: 0, Meta: Meta{Title: "主机管理"}},
-		{MenuLevel: 0, Hidden: false, Disabled: false, ParentId: "2", Path: "secret", Name: "授权管理", Sort: 1, Meta: Meta{Title: "授权管理"}},
-		// 容器管理子菜单
-		{MenuLevel: 0, Hidden: false, Disabled: false, ParentId: "3", Path: "cluster", Name: "集群管理", Sort: 0, Meta: Meta{Title: "集群管理"}},
-		{MenuLevel: 0, Hidden: false, Disabled: false, ParentId: "3", Path: "deployment", Name: "工作负载", Sort: 1, Meta: Meta{Title: "工作负载"}},
-		{MenuLevel: 0, Hidden: false, Disabled: false, ParentId: "3", Path: "service", Name: "服务发现", Sort: 2, Meta: Meta{Title: "服务发现"}},
-		{MenuLevel: 0, Hidden: false, Disabled: false, ParentId: "3", Path: "node", Name: "节点管理", Sort: 3, Meta: Meta{Title: "节点管理"}},
-		{MenuLevel: 0, Hidden: false, Disabled: false, ParentId: "3", Path: "config", Name: "配置中心", Sort: 4, Meta: Meta{Title: "配置中心"}},
-		{MenuLevel: 0, Hidden: false, Disabled: false, ParentId: "3", Path: "events", Name: "事件中心", Sort: 5, Meta: Meta{Title: "事件中心"}},
-		// 系统设置子菜单
-		{MenuLevel: 0, Hidden: false, Disabled: false, ParentId: "5", Path: "authority", Name: "角色管理", Sort: 1, Meta: Meta{Title: "角色管理"}},
-		{MenuLevel: 0, Hidden: false, Disabled: false, ParentId: "5", Path: "user", Name: "用户管理", Sort: 2, Meta: Meta{Title: "用户管理"}},
-		{MenuLevel: 0, Hidden: false, Disabled: false, ParentId: "5", Path: "operation", Name: "操作历史", Sort: 3, Meta: Meta{Title: "操作历史"}},
+		{ID: 10001, MenuLevel: 0, ParentId: "0", Path: "/home", Name: "概要", Sort: 1, Meta: Meta{Title: "概要", Icon: "Help"}},
+		{ID: 10002, MenuLevel: 0, ParentId: "0", Path: "/workflow", Name: "工作流", Sort: 2, Meta: Meta{Title: "工作流", Icon: "VideoPlay"}},
+
+		{ID: 10003, MenuLevel: 0, ParentId: "0", Path: "/workload", Name: "工作负载", Sort: 3, Meta: Meta{Title: "工作负载", Icon: "Menu"}},
+		{ID: 10004, MenuLevel: 1, ParentId: "10003", Path: "/workload/deployment", Name: "Deployment", Sort: 1, Meta: Meta{Title: "Deployment"}},
+		{ID: 10005, MenuLevel: 1, ParentId: "10003", Path: "/workload/pod", Name: "Pod", Sort: 2, Meta: Meta{Title: "Pod"}},
+		{ID: 10006, MenuLevel: 1, ParentId: "10003", Path: "/workload/daemonset", Name: "DaemonSet", Sort: 3, Meta: Meta{Title: "DaemonSet"}},
+		{ID: 10007, MenuLevel: 1, ParentId: "10003", Path: "/workload/statefulset", Name: "StatefulSet", Sort: 4, Meta: Meta{Title: "StatefulSet"}},
+
+		{ID: 10008, MenuLevel: 0, ParentId: "0", Path: "/loadbalance", Name: "负载均衡", Sort: 4, Meta: Meta{Title: "负载均衡", Icon: "Files"}},
+		{ID: 10009, MenuLevel: 1, ParentId: "10008", Path: "/loadbalance/service", Name: "Service", Sort: 1, Meta: Meta{Title: "Service"}},
+		{ID: 10010, MenuLevel: 1, ParentId: "10008", Path: "/loadbalance/ingress", Name: "Ingress", Sort: 2, Meta: Meta{Title: "Ingress"}},
+
+		{ID: 10011, MenuLevel: 0, ParentId: "0", Path: "/storage", Name: "存储与配置", Sort: 5, Meta: Meta{Title: "存储与配置", Icon: "Tickets"}},
+		{ID: 10012, MenuLevel: 1, ParentId: "10011", Path: "/storage/configmap", Name: "Configmap", Sort: 1, Meta: Meta{Title: "Configmap"}},
+		{ID: 10013, MenuLevel: 1, ParentId: "10011", Path: "/storage/secret", Name: "Secret", Sort: 2, Meta: Meta{Title: "Secret"}},
+		{ID: 10014, MenuLevel: 1, ParentId: "10011", Path: "/storage/persistentvolumeclaim", Name: "PVC", Sort: 3, Meta: Meta{Title: "PersistentVolumeClaim"}},
+
+		{ID: 10015, MenuLevel: 0, ParentId: "0", Path: "/cluster", Name: "集群", Sort: 6, Meta: Meta{Title: "集群", Icon: "Cpu"}},
+		{ID: 10016, MenuLevel: 1, ParentId: "10015", Path: "/cluster/node", Name: "Node", Sort: 1, Meta: Meta{Title: "Node"}},
+		{ID: 10017, MenuLevel: 1, ParentId: "10015", Path: "/cluster/namespace", Name: "Namespace", Sort: 2, Meta: Meta{Title: "Namespace"}},
+		{ID: 10018, MenuLevel: 1, ParentId: "10015", Path: "/cluster/persistentvolume", Name: "PersistentVolume", Sort: 3, Meta: Meta{Title: "PersistentVolume"}},
+
+		{ID: 10019, MenuLevel: 0, ParentId: "0", Path: "/system", Name: "系统管理", Sort: 7, Meta: Meta{Title: "系统管理", Icon: "Setting"}},
+		{ID: 10020, MenuLevel: 1, ParentId: "10019", Path: "/system/users", Name: "用户管理", Sort: 1, Meta: Meta{Title: "用户管理"}},
+		{ID: 10021, MenuLevel: 1, ParentId: "10019", Path: "/system/roles", Name: "角色权限", Sort: 2, Meta: Meta{Title: "角色权限"}},
 	}
 )
 
@@ -103,19 +114,19 @@ var (
 		{
 			AuthorityId:   pkg.AdminDefaultAuth,
 			AuthorityName: "管理员",
-			DefaultRouter: "dashboard",
+			DefaultRouter: "/home",
 			ParentId:      0,
 		},
 		{
 			AuthorityId:   pkg.UserDefaultAuth,
 			AuthorityName: "普通用户",
-			DefaultRouter: "dashboard",
+			DefaultRouter: "/home",
 			ParentId:      0,
 		},
 		{
 			AuthorityId:   pkg.UserSubDefaultAuth,
 			AuthorityName: "普通用户子角色",
-			DefaultRouter: "dashboard",
+			DefaultRouter: "/home",
 			ParentId:      222,
 		},
 	}
@@ -125,31 +136,40 @@ var CasbinApi = buildCasbinRule(SysApis)
 
 // buildCasbinRule 构建角色casbin api
 func buildCasbinRule(apis []SysApi) []adapter.CasbinRule {
-	var out []adapter.CasbinRule
-	// 管理员角色添加所有api
+	out := make([]adapter.CasbinRule, 0, len(apis)*2)
 	for _, api := range apis {
-		rule := adapter.CasbinRule{
+		out = append(out, adapter.CasbinRule{
 			Ptype: "p",
 			V0:    pkg.AdminDefaultAuthStr,
 			V1:    api.Path,
 			V2:    api.Method,
+		})
+		if isDefaultUserAPI(api) {
+			out = append(out, adapter.CasbinRule{
+				Ptype: "p",
+				V0:    pkg.UserDefaultAuthStr,
+				V1:    api.Path,
+				V2:    api.Method,
+			})
 		}
-		out = append(out, rule)
 	}
-	otherRule := []adapter.CasbinRule{
-		// admin添加所有接口
-		{Ptype: "p", V0: pkg.UserDefaultAuthStr, V1: "/api/user/login", V2: "POST"},
-		{Ptype: "p", V0: pkg.UserDefaultAuthStr, V1: "/api/user/loginout", V2: "GET"},
-		{Ptype: "p", V0: pkg.UserDefaultAuthStr, V1: "/api/user/getinfo", V2: "GET"},
-		{Ptype: "p", V0: pkg.UserDefaultAuthStr, V1: "/api/user/:id/change_pwd", V2: "POST"},
+	// 子角色不直接授予策略，其生效权限全部来自 222 -> 2221 的角色继承关系。
+	return out
+}
 
-		{Ptype: "p", V0: pkg.UserSubDefaultAuthStr, V1: "/api/user/login", V2: "POST"},
-		{Ptype: "p", V0: pkg.UserSubDefaultAuthStr, V1: "/api/user/loginout", V2: "GET"},
-		{Ptype: "p", V0: pkg.UserSubDefaultAuthStr, V1: "/api/user/getinfo", V2: "GET"},
-		{Ptype: "p", V0: pkg.UserSubDefaultAuthStr, V1: "/api/user/:id/change_pwd", V2: "POST"},
+func isDefaultUserAPI(api SysApi) bool {
+	if api.ApiGroup == "Kubernetes" && api.Method == "GET" {
+		return api.Path != "/api/k8s/pod/webshell" && api.Path != "/api/k8s/deployment/scale"
 	}
-	allRules := append(append(out, otherRule...))
-	return allRules
+	if api.ApiGroup != "用户" {
+		return false
+	}
+	switch api.Path {
+	case "/api/user/login", "/api/user/loginout", "/api/user/getinfo", "/api/user/:id/change_pwd":
+		return true
+	default:
+		return false
+	}
 }
 
 var SysApis = []SysApi{
@@ -164,6 +184,10 @@ var SysApis = []SysApi{
 	{Path: "/api/user/:id/delete_user", Description: "删除用户", ApiGroup: "用户", Method: "DELETE"},
 	{Path: "/api/user/:id/change_pwd", Description: "修改密码", ApiGroup: "用户", Method: "POST"},
 	{Path: "/api/user/:id/reset_pwd", Description: "重置密码", ApiGroup: "用户", Method: "PUT"},
+	{Path: "/api/user/list", Description: "用户列表", ApiGroup: "用户", Method: "GET"},
+	{Path: "/api/user", Description: "创建用户", ApiGroup: "用户", Method: "POST"},
+	{Path: "/api/user/:id", Description: "编辑用户", ApiGroup: "用户", Method: "PUT"},
+	{Path: "/api/user/:id/enable", Description: "启停用户", ApiGroup: "用户", Method: "PUT"},
 	// 操作审计接口
 	{Path: "/api/operation/get_operations", Description: "查询操作记录列表", ApiGroup: "操作审计", Method: "GET"},
 	{Path: "/api/operation/:id/delete_operation", Description: "删除单条记录", ApiGroup: "操作审计", Method: "DELETE"},
@@ -179,6 +203,9 @@ var SysApis = []SysApi{
 	{Path: "/api/authority/getPolicyPathByAuthorityId", Description: "获取角色api权限", ApiGroup: "权限", Method: "GET"},
 	{Path: "/api/authority/updateCasbinByAuthority", Description: "更改角色api权限", ApiGroup: "用户", Method: "POST"},
 	{Path: "/api/authority/getAuthorityList", Description: "获取角色列表", ApiGroup: "权限", Method: "GET"},
+	{Path: "/api/authority", Description: "创建角色", ApiGroup: "权限", Method: "POST"},
+	{Path: "/api/authority/:authorityId", Description: "编辑角色", ApiGroup: "权限", Method: "PUT"},
+	{Path: "/api/authority/:authorityId", Description: "删除角色", ApiGroup: "权限", Method: "DELETE"},
 	// K8S相关接口
 	{Path: "/api/k8s/deployment/create", Description: "创建deployment", ApiGroup: "Kubernetes", Method: "POST"},
 	{Path: "/api/k8s/deployment/del", Description: "删除deployment", ApiGroup: "Kubernetes", Method: "DELETE"},
