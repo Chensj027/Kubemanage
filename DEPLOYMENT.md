@@ -8,7 +8,7 @@
 - 校园网内部验收地址：<http://10.90.1.234:30240/>
 - 校外浏览器入口：通过 SSH 本地端口转发后访问 <http://127.0.0.1:30240/>
 - MySQL 数据卷：`nfs-csi`，10 Gi
-- 当前版本：后端/前端 `v1.0.0`，MySQL `5.7`
+- 当前版本：以 `kubectl get deployment -n kubemanage` 显示的镜像 tag 为准；MySQL `5.7`
 
 所有正式 Pod 均固定调度到 `node234`。
 
@@ -138,25 +138,123 @@ admin / kubemanage
 
 首次登录后必须立即修改默认密码。
 
-## 发布新版本
+## 通用版本更新流程
 
-1. 使用新 tag 构建镜像，例如 `v1.0.1`。
-2. 将新镜像导入 node234 containerd。
-3. 更新 `k8s/04-backend.yaml`、`k8s/05-web.yaml` 中的 tag。
-4. 执行：
+以下流程适用于后端、前端同时发布的新版本。示例版本为 `v1.1.0`，以后必须使用未使用过的新 tag，不能覆盖旧 tag；清单使用 `IfNotPresent`，复用旧 tag 可能继续运行旧镜像。
+
+### 1. 发布前检查和数据库备份
+
+```bash
+git pull origin master
+git status --short
+go test ./...                         # 在 kubemanage-another 目录执行
+npm run build                         # 在 kubemanage-web 目录执行
+
+kubectl config current-context
+kubectl get nodes -o wide
+kubectl get pods,pvc,svc -n kubemanage -o wide
+
+BACKUP=kubemanage-$(date +%F-%H%M).sql
+kubectl exec -n kubemanage kubemanage-mysql-0 -- \
+  sh -c 'exec mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" \
+  --single-transaction --routines --triggers kubemanage' \
+  > "$BACKUP"
+test -s "$BACKUP"
+sha256sum "$BACKUP"
+```
+
+本项目后端使用 `Recreate` 策略，后端会有短暂中断。新版本首次启动还可能执行数据库字段迁移和 `rbac-catalog-v2` 权限目录迁移，备份不能省略。
+
+### 2. 构建镜像
+
+```bash
+VERSION=v1.1.0
+
+cd kubemanage-another
+env GOCACHE=/tmp/kubemanage-go-cache CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+  go build -trimpath -ldflags='-s -w' -o kubemanage-server ./cmd/main.go
+docker build -f Dockerfile.runtime \
+  -t docker.io/library/kubemanage-backend:$VERSION .
+rm -f kubemanage-server
+
+cd ../kubemanage-web
+npm run build
+docker build -t docker.io/library/kubemanage-web:$VERSION .
+rm -rf dist
+```
+
+如果本地构建出的镜像显示为短名称，先补齐清单中的完整 tag：
+
+```bash
+docker tag kubemanage-backend:$VERSION docker.io/library/kubemanage-backend:$VERSION
+docker tag kubemanage-web:$VERSION docker.io/library/kubemanage-web:$VERSION
+```
+
+### 3. 导入 node234 containerd
+
+node234 当前不能稳定从公网 Registry 拉取镜像，必须先导入镜像：
+
+```bash
+docker save -o /tmp/kubemanage-$VERSION.tar \
+  docker.io/library/kubemanage-backend:$VERSION \
+  docker.io/library/kubemanage-web:$VERSION
+```
+
+若可以 SSH 到 node234，直接执行：
+
+```bash
+scp /tmp/kubemanage-$VERSION.tar node234:/tmp/
+ssh node234 sudo ctr -n k8s.io images import /tmp/kubemanage-$VERSION.tar
+```
+
+若 SSH 不可用，可使用 node191 临时 HTTP 服务和固定到 node234 的一次性特权导入 Pod；导入完成后必须删除临时服务和 Pod，且不要把特权导入清单长期提交到仓库。
+
+导入后确认两个完整镜像 tag 存在，再继续更新 Deployment。
+
+### 4. 更新清单并先发布后端
+
+将 `k8s/04-backend.yaml` 和 `k8s/05-web.yaml` 的镜像 tag 更新为 `$VERSION`。后端环境变量必须保留实际访问来源，例如：
+
+```yaml
+- name: KUBEMANAGE_ALLOWED_ORIGINS
+  value: "http://10.90.1.234:30240,http://127.0.0.1:30240"
+```
+
+先更新后端并确认迁移完成：
 
 ```bash
 kubectl apply -f k8s/04-backend.yaml
-kubectl apply -f k8s/05-web.yaml
-kubectl rollout status deployment/kubemanage-backend -n kubemanage
-kubectl rollout status deployment/kubemanage-web -n kubemanage
+kubectl rollout status deployment/kubemanage-backend -n kubemanage --timeout=300s
+kubectl logs -n kubemanage deployment/kubemanage-backend --tail=300
+
+kubectl exec -n kubemanage kubemanage-mysql-0 -- \
+  sh -c 'mysql -ukubemanage -p"$MYSQL_PASSWORD" kubemanage \
+  -e "SELECT name, applied_at FROM sys_data_migrations \
+  WHERE name='\''rbac-catalog-v2'\'';"'
 ```
 
-回滚：
+首次 RBAC 迁移会重建内置角色 `111/222/2221` 的默认直授权限；自定义角色会保留，自定义菜单不会自动授予普通用户。
+
+### 5. 发布前端并验收
 
 ```bash
-kubectl rollout undo deployment/kubemanage-backend -n kubemanage
-kubectl rollout undo deployment/kubemanage-web -n kubemanage
+kubectl apply -f k8s/05-web.yaml
+kubectl rollout status deployment/kubemanage-web -n kubemanage --timeout=300s
+
+kubectl get pods,svc,pvc -n kubemanage -o wide
+kubectl get deployment -n kubemanage \
+  -o custom-columns='NAME:.metadata.name,IMAGE:.spec.template.spec.containers[*].image,READY:.status.readyReplicas'
 ```
 
-数据库变更不能依赖 Deployment 回滚，升级前应单独备份 PVC 数据。
+至少验证：页面 HTTP 200、默认账号登录 API、管理员菜单/API、普通用户和子角色权限、Kubernetes 节点列表、WebShell，以及 MySQL PVC 为 `Bound`。
+
+### 6. 回滚
+
+镜像兼容时可以回滚 Deployment：
+
+```bash
+kubectl rollout undo deployment/kubemanage-web -n kubemanage
+kubectl rollout undo deployment/kubemanage-backend -n kubemanage
+```
+
+但 Deployment 回滚不会撤销 `AutoMigrate` 或 RBAC 数据迁移。若旧版本无法兼容新数据库，必须停止后端、使用升级前数据库备份恢复，再应用旧版本镜像和清单。Secret 不提交 Git，恢复数据库时不要覆盖现有 Secret。

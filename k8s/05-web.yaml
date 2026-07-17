@@ -17,7 +17,7 @@ spec:
         kubernetes.io/hostname: node234
       containers:
         - name: web
-          image: docker.io/library/kubemanage-web:v1.0.0
+          image: docker.io/library/kubemanage-web:v1.1.0
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

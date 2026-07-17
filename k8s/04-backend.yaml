@@ -34,7 +34,7 @@ spec:
                   key: mysql-password
       containers:
         - name: backend
-          image: docker.io/library/kubemanage-backend:v1.0.0
+          image: docker.io/library/kubemanage-backend:v1.1.0
           imagePullPolicy: IfNotPresent
           env:
             - name: KUBEMANAGE_CONFIG
@@ -49,6 +49,8 @@ spec:
                 secretKeyRef:
                   name: kubemanage-secrets
                   key: jwt-secret
+            - name: KUBEMANAGE_ALLOWED_ORIGINS
+              value: "http://10.90.1.234:30240,http://127.0.0.1:30240"
           ports:
             - name: http
               containerPort: 6180
