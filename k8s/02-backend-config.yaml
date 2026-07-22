@@ -27,3 +27,16 @@ data:
       max_size: 200
       max_age: 30
       max_backups: 7
+
+    grafana:
+      # 集群内 Grafana 地址（已开启子路径）；后端反代目标
+      upstream: "http://grafana.monitoring.svc.cluster.local:80"
+      # 未命中 roleMapping 的角色使用的默认 Grafana 角色；置空则拒绝访问
+      defaultRole: "Viewer"
+      # Kubemanage 角色ID(需加引号) -> Grafana Org 角色
+      roleMapping:
+        "111": "Admin"    # 管理员
+        "222": "Editor"   # 普通用户
+        "2221": "Viewer"  # 普通用户子角色
+      ticketTTL: 30        # 一次性票据有效期(秒)
+      sessionTTL: 28800    # 代理会话Cookie有效期(秒, 8h)

@@ -20,3 +20,17 @@ log:
   max_size: 200    # 日志文件最大大小(MB)
   max_age: 30      # 保留旧日志文件的最大天数
   max_backups: 7   # 最大保留日志个数
+
+# Grafana 监控 SSO（与生产 k8s/02-backend-config.yaml 的 grafana 段保持一致）
+grafana:
+  # 集群内为 Grafana Service 的 DNS 名；本机 dev 后端解析不了集群 DNS，
+  # 改用 ClusterIP，如 http://<clusterip>:80（kubectl get svc grafana -n monitoring）。
+  # 也可用环境变量覆盖：KUBEMANAGE_GRAFANA_UPSTREAM
+  upstream: "http://grafana.monitoring.svc.cluster.local:80"
+  defaultRole: "Viewer"          # 未命中 roleMapping 的角色默认值；置空则拒绝访问
+  roleMapping:                    # Kubemanage 角色ID -> Grafana Org 角色
+    "111": "Admin"
+    "222": "Editor"
+    "2221": "Viewer"
+  ticketTTL: 30                   # 一次性票据有效期(秒)
+  sessionTTL: 28800               # 代理会话Cookie有效期(秒)

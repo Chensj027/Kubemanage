@@ -22,6 +22,14 @@ module.exports = defineConfig({
         // pathRewrite: {
         //   '^/api': ''//重写路径
         // }
+      },
+      // Grafana 监控：与生产一致，转发到后端；由后端做 SSO 会话校验 + 反代 Grafana。
+      // 前提：后端 grafana.upstream 指向对 dev 主机可达的 Grafana，例如
+      //   KUBEMANAGE_GRAFANA_UPSTREAM=http://10.90.1.234:30300
+      '/grafana': {
+        target: backendTarget,
+        ws: true,
+        changeOrigin: true,
       }
     }
   },

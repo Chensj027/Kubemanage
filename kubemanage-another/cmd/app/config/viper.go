@@ -32,6 +32,13 @@ var configObj = &Config{
 		MaxAge:     30,
 		MaxBackups: 7,
 	},
+	Grafana: GrafanaOptions{
+		Upstream:    "http://grafana.monitoring.svc.cluster.local:80",
+		DefaultRole: "Viewer",
+		RoleMapping: map[string]string{"111": "Admin", "222": "Editor", "2221": "Viewer"},
+		TicketTTL:   30,
+		SessionTTL:  28800,
+	},
 }
 
 func defaultConfig() *Config {
@@ -66,6 +73,10 @@ func Binding(filePath string) error {
 	}
 	if value := os.Getenv("KUBEMANAGE_JWT_SECRET"); value != "" {
 		SysConfig.Default.JWTSecret = value
+	}
+	// Grafana 反代上游可用环境变量覆盖，便于 dev 指向节点可达地址（如 NodePort/ClusterIP）。
+	if value := os.Getenv("KUBEMANAGE_GRAFANA_UPSTREAM"); value != "" {
+		SysConfig.Grafana.Upstream = value
 	}
 
 	v.WatchConfig()

@@ -189,6 +189,22 @@ export const routes = [
                 component: () => import("@/views/persistentvolume/PersistentVolume.vue")
             }
         ]
+    },
+    {
+        path: "/monitor",
+        name: "监控",
+        component: Layout,
+        icon: "Odometer",
+        meta: {title: "监控", requireAuth: true},
+        children: [
+            {
+                path: "/monitor/grafana",
+                name: "Grafana",
+                icon: "Odometer",
+                meta: {title: "Grafana", requireAuth: true, external: true},
+                component: () => import("@/views/monitor/GrafanaEntry.vue")
+            }
+        ]
     }
 ]
 

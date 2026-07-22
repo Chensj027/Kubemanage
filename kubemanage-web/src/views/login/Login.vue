@@ -60,6 +60,8 @@ export default{
     methods: {
         //登录方法
         handleLogin() {
+          // 开启按钮加载态，给用户明确的“登录中”反馈（bcrypt 校验通常需 1s 以上）
+          this.loginLoading = true
           login(this.loginData)
             .then(async res => {
                 //账号密码校验成功后的一系列操作
@@ -77,8 +79,11 @@ export default{
             })
             .catch(res => {
                 this.$message.error({
-                message: res.msg
+                message: (res && res.msg) || '登录失败，请稍后重试'
                 })
+            })
+            .finally(() => {
+                this.loginLoading = false
             })
         }
     }

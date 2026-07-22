@@ -19,6 +19,7 @@ const (
 	RBACCatalogMigrationOrder
 	OperatorationOrder
 	WorkFlowOrder
+	GrafanaMenuMigrationOrder
 )
 
 // SysUserEntities 用户初始化数据
@@ -105,6 +106,9 @@ var (
 		{ID: 10019, MenuLevel: 0, ParentId: "0", Path: "/system", Name: "系统管理", Sort: 7, Meta: Meta{Title: "系统管理", Icon: "Setting"}},
 		{ID: 10020, MenuLevel: 1, ParentId: "10019", Path: "/system/users", Name: "用户管理", Sort: 1, Meta: Meta{Title: "用户管理"}},
 		{ID: 10021, MenuLevel: 1, ParentId: "10019", Path: "/system/roles", Name: "角色权限", Sort: 2, Meta: Meta{Title: "角色权限"}},
+
+		{ID: 10022, MenuLevel: 0, ParentId: "0", Path: "/monitor", Name: "监控", Sort: 8, Meta: Meta{Title: "监控", Icon: "Odometer"}},
+		{ID: 10023, MenuLevel: 1, ParentId: "10022", Path: "/monitor/grafana", Name: "Grafana", Sort: 1, Meta: Meta{Title: "Grafana"}},
 	}
 )
 

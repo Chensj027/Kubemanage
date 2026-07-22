@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	uuid "github.com/satori/go.uuid"
@@ -84,7 +85,22 @@ func (u *userService) Login(ctx *gin.Context, userInfo *dto.AdminLoginInput) (st
 	if user.Enable != 1 {
 		return "", errors.New("用户已被冻结")
 	}
-	_ = u.factory.GetDB().WithContext(ctx).Model(&model.SysUser{}).Where("id = ?", user.ID).Update("status", sql.NullInt64{Int64: 1, Valid: true}).Error
+
+	// 登录成功后的非关键副作用异步执行，不阻塞登录返回（避免 NFS 存储写入偶发卡顿拖慢登录）：
+	//   1) 在线状态标记 status=1；
+	//   2) 若旧密码哈希 cost 与当前设定不同（如 14→12），透明重算一次，存量用户下次登录起加速（仅首次触发）。
+	// 使用脱离请求生命周期的独立 context（请求返回后 gin 的 ctx 会被取消）。
+	go func(uid int, plainPwd, storedHash string) {
+		bg, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		db := u.factory.GetDB().WithContext(bg)
+		_ = db.Model(&model.SysUser{}).Where("id = ?", uid).Update("status", sql.NullInt64{Int64: 1, Valid: true}).Error
+		if pkg.PasswordNeedsUpgrade(storedHash) {
+			if newHash, herr := pkg.GenSaltPassword(plainPwd); herr == nil {
+				_ = db.Model(&model.SysUser{}).Where("id = ?", uid).Update("password", newHash).Error
+			}
+		}
+	}(user.ID, userInfo.Password, user.Password)
 
 	// 使用JWT生成token
 	token, err := pkg.JWTToken.GenerateToken(pkg.BaseClaims{

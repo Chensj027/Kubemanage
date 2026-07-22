@@ -34,7 +34,7 @@ spec:
                   key: mysql-password
       containers:
         - name: backend
-          image: docker.io/library/kubemanage-backend:v1.1.0
+          image: docker.io/hduchensj/kubemanage:backend-v1.2.1
           imagePullPolicy: IfNotPresent
           env:
             - name: KUBEMANAGE_CONFIG

@@ -8,6 +8,21 @@ type Config struct {
 	Default DefaultOptions `mapstructure:"default"`
 	Mysql   MysqlOptions   `mapstructure:"mysql"`
 	Log     LogConfig      `mapstructure:"log"`
+	Grafana GrafanaOptions `mapstructure:"grafana"`
+}
+
+// GrafanaOptions Grafana 单点登录/反向代理配置
+type GrafanaOptions struct {
+	// Upstream 集群内 Grafana 地址（已开启子路径），后端反代目标
+	Upstream string `mapstructure:"upstream"`
+	// DefaultRole 未在 RoleMapping 命中的角色使用的默认 Grafana 角色；为空则拒绝访问
+	DefaultRole string `mapstructure:"defaultRole"`
+	// RoleMapping Kubemanage 角色ID(字符串) -> Grafana Org 角色(Viewer/Editor/Admin)
+	RoleMapping map[string]string `mapstructure:"roleMapping"`
+	// TicketTTL 一次性票据有效期（秒）
+	TicketTTL int `mapstructure:"ticketTTL"`
+	// SessionTTL 代理会话 Cookie 有效期（秒）
+	SessionTTL int `mapstructure:"sessionTTL"`
 }
 
 // DefaultOptions 默认配置选项

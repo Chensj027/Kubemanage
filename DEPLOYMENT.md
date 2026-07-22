@@ -140,7 +140,10 @@ admin / kubemanage
 
 ## 通用版本更新流程
 
-以下流程适用于后端、前端同时发布的新版本。示例版本为 `v1.1.0`，以后必须使用未使用过的新 tag，不能覆盖旧 tag；清单使用 `IfNotPresent`，复用旧 tag 可能继续运行旧镜像。
+**先在开发环境验证改动，确认无误后再发布生产**，避免不必要的镜像构建与生产中断
+（后端 `Recreate` 会短暂停服并可能跑迁移）。
+
+以下流程适用于后端、前端同时发布的新版本。示例版本为 `v1.2.0`，以后必须使用未使用过的新 tag，不能覆盖旧 tag；清单使用 `IfNotPresent`，复用旧 tag 可能继续运行旧镜像。
 
 ### 1. 发布前检查和数据库备份
 
@@ -165,55 +168,40 @@ sha256sum "$BACKUP"
 
 本项目后端使用 `Recreate` 策略，后端会有短暂中断。新版本首次启动还可能执行数据库字段迁移和 `rbac-catalog-v2` 权限目录迁移，备份不能省略。
 
-### 2. 构建镜像
+### 2. 构建并推送镜像（Docker Hub）
+
+node234 无法从 `registry.k8s.io` 拉取（CloudFront DNS 解析失败），但可以拉取**公开的 Docker Hub**。
+镜像统一推到公开仓库 `hduchensj/kubemanage`，用 `backend-` / `web-` 前缀区分组件。
+
+先 `docker login` 到 Docker Hub（用账号或访问令牌），然后：
 
 ```bash
-VERSION=v1.1.0
+VERSION=v1.2.0            # 每次必须用未使用过的新 tag
 
 cd kubemanage-another
+go test ./...
 env GOCACHE=/tmp/kubemanage-go-cache CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
   go build -trimpath -ldflags='-s -w' -o kubemanage-server ./cmd/main.go
-docker build -f Dockerfile.runtime \
-  -t docker.io/library/kubemanage-backend:$VERSION .
+docker build -f Dockerfile.runtime -t docker.io/hduchensj/kubemanage:backend-$VERSION .
 rm -f kubemanage-server
+docker push docker.io/hduchensj/kubemanage:backend-$VERSION
 
 cd ../kubemanage-web
 npm run build
-docker build -t docker.io/library/kubemanage-web:$VERSION .
+docker build -t docker.io/hduchensj/kubemanage:web-$VERSION .
 rm -rf dist
+docker push docker.io/hduchensj/kubemanage:web-$VERSION
 ```
 
-如果本地构建出的镜像显示为短名称，先补齐清单中的完整 tag：
+### 3. node234 直接从 Docker Hub 拉取（无需再导入）
 
-```bash
-docker tag kubemanage-backend:$VERSION docker.io/library/kubemanage-backend:$VERSION
-docker tag kubemanage-web:$VERSION docker.io/library/kubemanage-web:$VERSION
-```
-
-### 3. 导入 node234 containerd
-
-node234 当前不能稳定从公网 Registry 拉取镜像，必须先导入镜像：
-
-```bash
-docker save -o /tmp/kubemanage-$VERSION.tar \
-  docker.io/library/kubemanage-backend:$VERSION \
-  docker.io/library/kubemanage-web:$VERSION
-```
-
-若可以 SSH 到 node234，直接执行：
-
-```bash
-scp /tmp/kubemanage-$VERSION.tar node234:/tmp/
-ssh node234 sudo ctr -n k8s.io images import /tmp/kubemanage-$VERSION.tar
-```
-
-若 SSH 不可用，可使用 node191 临时 HTTP 服务和固定到 node234 的一次性特权导入 Pod；导入完成后必须删除临时服务和 Pod，且不要把特权导入清单长期提交到仓库。
-
-导入后确认两个完整镜像 tag 存在，再继续更新 Deployment。
+仓库 `hduchensj/kubemanage` 是公开的，清单用 `IfNotPresent` + **新 tag**，node234 会在滚动时
+自动从 Docker Hub 拉取，**不再需要** `docker save` / `scp` / `ctr import` 那套导入流程（已废弃）。
 
 ### 4. 更新清单并先发布后端
 
-将 `k8s/04-backend.yaml` 和 `k8s/05-web.yaml` 的镜像 tag 更新为 `$VERSION`。后端环境变量必须保留实际访问来源，例如：
+将 `k8s/04-backend.yaml` 的镜像改为 `docker.io/hduchensj/kubemanage:backend-$VERSION`、
+`k8s/05-web.yaml` 的镜像改为 `docker.io/hduchensj/kubemanage:web-$VERSION`。后端环境变量必须保留实际访问来源，例如：
 
 ```yaml
 - name: KUBEMANAGE_ALLOWED_ORIGINS
@@ -258,3 +246,21 @@ kubectl rollout undo deployment/kubemanage-backend -n kubemanage
 ```
 
 但 Deployment 回滚不会撤销 `AutoMigrate` 或 RBAC 数据迁移。若旧版本无法兼容新数据库，必须停止后端、使用升级前数据库备份恢复，再应用旧版本镜像和清单。Secret 不提交 Git，恢复数据库时不要覆盖现有 Secret。
+
+## Grafana 监控（SSO）注意事项
+
+Kubemanage 通过「后端反代 + Grafana `auth.proxy`」实现单点登录：点「监控」菜单免登录进入 Grafana，
+Kubemanage 角色映射为 Grafana 角色（111→Admin、222→Editor、2221→Viewer）。
+
+- **后端侧**：反代与角色映射配置在 `k8s/02-backend-config.yaml` 的 `grafana` 段
+  （`upstream` / `roleMapping` / `defaultRole`）。前端 `/grafana` 由 nginx 转发到后端。
+- **Grafana 侧**：子路径、`auth.proxy`、Service 收成 ClusterIP 由 Helm values 管理，见
+  `/root/csj/grafana-values.yaml`。**不要用 `kubectl set env`/`patch` 临时改 Grafana**——
+  下次 `helm upgrade` 会还原（SSO 失效 + NodePort 重新暴露）。更新用：
+
+  ```bash
+  helm upgrade grafana <你的chart> -n monitoring -f /root/csj/grafana-values.yaml
+  ```
+
+- **收口现状**：Grafana 已是 ClusterIP，只能经 Kubemanage 访问；本集群用 flannel，
+  NetworkPolicy 不生效，残留风险仅限「集群内 Pod / 节点 root」伪造身份头。

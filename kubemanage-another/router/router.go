@@ -10,6 +10,7 @@ import (
 	"github.com/noovertime7/kubemanage/controller/authority"
 	"github.com/noovertime7/kubemanage/controller/kubeController"
 	"github.com/noovertime7/kubemanage/controller/menu"
+	"github.com/noovertime7/kubemanage/controller/monitor"
 	"github.com/noovertime7/kubemanage/controller/other"
 	"github.com/noovertime7/kubemanage/middleware"
 )
@@ -24,6 +25,8 @@ func InstallRouters(opt *options.Options) {
 	installUnOperationRouters(apiGroup)
 	// 安装 需要记录操作历史 的路由，路由前都加上了一个中间件
 	installOperationRouters(apiGroup)
+	// 安装 Grafana 监控 SSO 与反向代理路由（自带鉴权，不经 /api 的 JWT/Casbin 中间件）
+	monitor.NewMonitorRouter(opt.GinEngine)
 }
 
 // installUnOperationRouters 本方法里的api路由，不需要记录操作历史

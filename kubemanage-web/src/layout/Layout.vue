@@ -12,9 +12,9 @@
         </el-affix>
 <!--        使用vue-router模式，index就是path-->
         <el-menu class="aside-menu"
-                  router
                  :default-active="$route.path"
                  :collapse="isCollapse"
+                 @select="onMenuSelect"
                  background-color="#121b27"
                  text-color="#bfcdb9"
                  active-text-color="#20a0ff"
@@ -92,6 +92,7 @@
 import { visibleRoutes } from '@/router'
 import { logout, changePassword } from '@/api/system'
 import { authState, clearAuth } from '@/utils/auth'
+import { enterGrafana } from '@/api/monitor'
 export default {
   name: 'KubeLayout',
   data() {
@@ -102,6 +103,8 @@ export default {
       // 导航栏宽度
       asideWidth : '220px',
       routers: [],
+      // 外链型菜单路径集合（点击走外部动作而非站内导航），如 Grafana 监控
+      externalPaths: new Set(),
     }
   },
   computed: {
@@ -111,6 +114,11 @@ export default {
     }
   },
   methods: {
+    onMenuSelect(index) {
+      // 外链型菜单（如 Grafana 监控）走外部 SSO 动作，不做站内路由跳转
+      if (this.externalPaths.has(index)) { enterGrafana(); return }
+      if (index && index !== this.$route.path) this.$router.push(index)
+    },
     onCollapse() {
       if (this.isCollapse) {
         this.asideWidth = '220px'
@@ -136,6 +144,11 @@ export default {
   },
   beforeMount() {
     this.routers = visibleRoutes()
+    const external = new Set()
+    this.routers.forEach(r => (r.children || []).forEach(c => {
+      if (c.meta && c.meta.external) external.add(c.path)
+    }))
+    this.externalPaths = external
   }
 }
 </script>
